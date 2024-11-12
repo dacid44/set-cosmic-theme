@@ -1,9 +1,6 @@
 use anyhow::{Context, Result};
-use cosmic::{
-    cosmic_config::{self, CosmicConfigEntry},
-    cosmic_theme::Theme,
-    cosmic_theme::ThemeBuilder,
-};
+use cosmic_config::{self, CosmicConfigEntry};
+use cosmic_theme::{Theme, ThemeBuilder};
 use std::{fs, path::PathBuf};
 
 const HELP: &str = "\
