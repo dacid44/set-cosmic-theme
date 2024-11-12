@@ -1,4 +1,6 @@
-use std::path::PathBuf;
+use std::{fs, path::PathBuf};
+use anyhow::{Context, Result};
+use cosmic::{cosmic_config::{self, CosmicConfigEntry}, cosmic_theme::ThemeBuilder};
 
 const HELP: &str = "\
 set-cosmic-theme
@@ -88,6 +90,24 @@ fn parse_args() -> Args {
     }
 }
 
-fn main() {
+
+fn main() -> Result<()> {
+    // Parse args
     let args = parse_args();
+
+    // Read file
+    let theme_str = fs::read_to_string(args.theme_file)
+        .context("Failed to read theme file")?;
+    let theme: ThemeBuilder = ron::de::from_str(&theme_str)
+        .context("Failed to parse theme file")?;
+
+    // Get COSMIC config
+    // let config = cosmic_config::Config::libcosmic()
+    //     .context("Could not get Cosmic config")?;
+    let config = ThemeBuilder::dark_config()
+        .context("Could not get Cosmic theme config")?;
+    theme.write_entry(&config)
+        .context("Could not write Cosmic theme")?;
+
+    Ok(())
 }
