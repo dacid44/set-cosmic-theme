@@ -10,12 +10,17 @@ const HELP: &str = "\
 set-cosmic-theme
 
 USAGE:
-  set-cosmic-theme [--dark] [--light] THEME
+  set-cosmic-theme [MODES] THEME
 
 FLAGS:
-  -h, --help        Print help information.
-  --dark, --light   Set dark or light theme. If neither or both are specified,
-                    sets both themes with the same file.
+  -h, --help    Print help information.
+
+MODES:
+  --dark        Set the COSMIC dark theme.
+  --light       Set the COSMIC light theme.
+                If neither --dark or --light are specified, which theme to set
+                is determined based on the theme file's palette.
+  --gtk4        Set the GTK4 user CSS based on the theme file.
 
 ARGS:
   <THEME>           The theme file to set. Should be a RON theme file exported
@@ -25,6 +30,7 @@ ARGS:
 struct Args {
     set_dark: bool,
     set_light: bool,
+    set_gtk4: bool,
     theme_file: PathBuf,
 }
 
@@ -46,6 +52,13 @@ fn parse_args() -> Args {
     let set_light = args
         .iter()
         .position(|arg| arg == "--light")
+        .inspect(|i| {
+            args.swap_remove(*i);
+        })
+        .is_some();
+    let set_gtk4 = args
+        .iter()
+        .position(|arg| arg == "--gtk4")
         .inspect(|i| {
             args.swap_remove(*i);
         })
@@ -79,18 +92,11 @@ fn parse_args() -> Args {
         }
     };
 
-    if set_dark || set_light {
-        Args {
-            set_dark,
-            set_light,
-            theme_file,
-        }
-    } else {
-        Args {
-            set_dark: true,
-            set_light: true,
-            theme_file,
-        }
+    Args {
+        set_dark,
+        set_light,
+        set_gtk4,
+        theme_file,
     }
 }
 
@@ -123,12 +129,21 @@ fn set_theme(theme_builder: &ThemeBuilder, dark: bool) -> Result<()> {
 
 fn main() -> Result<()> {
     // Parse args
-    let args = parse_args();
+    let mut args = parse_args();
 
     // Read file
     let theme_str = fs::read_to_string(args.theme_file).context("Failed to read theme file")?;
     let theme_builder: ThemeBuilder =
         ron::de::from_str(&theme_str).context("Failed to parse theme file")?;
+
+    // If theme mode was unspecified, set it based on the given theme file
+    if !args.set_dark && !args.set_light {
+        if theme_builder.palette.is_dark() {
+            args.set_dark = true;
+        } else {
+            args.set_light = true;
+        }
+    }
 
     // Set Cosmic theme(s)
     if args.set_dark {
@@ -136,6 +151,14 @@ fn main() -> Result<()> {
     }
     if args.set_light {
         set_theme(&theme_builder, false).context("Failed to set Cosmic light theme")?;
+    }
+
+    // Set gtk4 theme
+    if args.set_gtk4 {
+        theme_builder
+            .build()
+            .write_gtk4()
+            .context("Failed to set GTK4 user CSS")?;
     }
 
     Ok(())
