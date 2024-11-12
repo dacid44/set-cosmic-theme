@@ -1,6 +1,10 @@
-use std::{fs, path::PathBuf};
 use anyhow::{Context, Result};
-use cosmic::{cosmic_config::{self, CosmicConfigEntry}, cosmic_theme::ThemeBuilder};
+use cosmic::{
+    cosmic_config::{self, CosmicConfigEntry},
+    cosmic_theme::Theme,
+    cosmic_theme::ThemeBuilder,
+};
+use std::{fs, path::PathBuf};
 
 const HELP: &str = "\
 set-cosmic-theme
@@ -90,27 +94,49 @@ fn parse_args() -> Args {
     }
 }
 
+fn set_theme(theme_builder: &ThemeBuilder, dark: bool) -> Result<()> {
+    let builder_config = (if dark {
+        ThemeBuilder::dark_config()
+    } else {
+        ThemeBuilder::light_config()
+    })
+    .context("Could not get Cosmic theme builder config")?;
+    let theme_config = (if dark {
+        Theme::dark_config()
+    } else {
+        Theme::light_config()
+    })
+    .context("Could not get Cosmic theme config")?;
+
+    theme_builder
+        .clone()
+        .build()
+        .write_entry(&theme_config)
+        .context("Failed to write theme")?;
+
+    theme_builder
+        .write_entry(&builder_config)
+        .context("Failed to write theme builder")?;
+
+    Ok(())
+}
 
 fn main() -> Result<()> {
     // Parse args
     let args = parse_args();
 
     // Read file
-    let theme_str = fs::read_to_string(args.theme_file)
-        .context("Failed to read theme file")?;
-    let theme: ThemeBuilder = ron::de::from_str(&theme_str)
-        .context("Failed to parse theme file")?;
+    let theme_str = fs::read_to_string(args.theme_file).context("Failed to read theme file")?;
+    let theme_builder: ThemeBuilder =
+        ron::de::from_str(&theme_str).context("Failed to parse theme file")?;
 
-    // Get COSMIC config
-    // let config = cosmic_config::Config::libcosmic()
-    //     .context("Could not get Cosmic config")?;
-    let config = ThemeBuilder::dark_config()
-        .context("Could not get Cosmic theme config")?;
-    let new_theme = theme.clone().build();
-    theme.write_entry(&config)
-        .context("Could not write Cosmic theme builder config")?;
-    new_theme.write_entry(&config)
-        .context("Could not write Cosmic theme")?;
+    // Set Cosmic theme(s)
+    if args.set_dark {
+        set_theme(&theme_builder, true).context("Failed to set Cosmic dark theme")?;
+    }
+    if args.set_light {
+        set_theme(&theme_builder, false).context("Failed to set Cosmic light theme")?;
+    }
 
     Ok(())
 }
