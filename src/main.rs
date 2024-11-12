@@ -106,7 +106,10 @@ fn main() -> Result<()> {
     //     .context("Could not get Cosmic config")?;
     let config = ThemeBuilder::dark_config()
         .context("Could not get Cosmic theme config")?;
+    let new_theme = theme.clone().build();
     theme.write_entry(&config)
+        .context("Could not write Cosmic theme builder config")?;
+    new_theme.write_entry(&config)
         .context("Could not write Cosmic theme")?;
 
     Ok(())
