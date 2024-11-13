@@ -1,6 +1,6 @@
 { config, pkgs, lib, ... }:
 {
-  options = {
+  options.set-cosmic-theme = {
     dark = {
       description = "Path to dark mode COSMIC theme file, or `\"default\" (set the default dark theme).`";
       type = lib.types.nullOr lib.types.path;
@@ -24,7 +24,7 @@
   lib.mkIf (cfg.dark != null || cfg.light != null) {
     assertions = [
       {
-        assertion = cfg.gtk4 != null && cfg.${cfg.gtk4} == null;
+        assertion = cfg.gtk4 != null && cfg.${builtins.trace cfg.gtk4 cfg.gtk4} == null;
         message = "If the gtk4 option is set, the corresponding mode must not be null";
       }
     ];
