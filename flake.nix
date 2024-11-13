@@ -18,5 +18,6 @@
         default = import ./default.nix { pkgs = pkgs; };
       }
     );
+    homeManagerModules.default = import ./home.nix;
   };
 }
