@@ -21,7 +21,7 @@
     config = config.set-cosmic-theme;
     set-cosmic-theme = import ./default.nix { pkgs = pkgs; };
   in
-  lib.mkIf config.dark!= null || config.light != null {
+  lib.mkIf (config.dark != null || config.light != null) {
     assertions = [
       {
         assertion = config.gtk4 != null && config.${config.gtk4} == null;
@@ -30,13 +30,13 @@
     ];
 
     home.activation = {
-      setCosmicThemeDark = lib.mkIf config.dark != null (
+      setCosmicThemeDark = (lib.mkIf config.dark) != null (
         lib.hm.dag.entryAfter [ "writeBoundary" ] ''
           run ${set-cosmic-theme.outPath}/bin/set-cosmic-theme --dark \
               ${lib.string.escapeShellArg config.dark} ${if config.gtk4 == "dark" then "--gtk4" else ""}
         ''
       );
-      setCosmicThemeLight = lib.mkIf config.light != null (
+      setCosmicThemeLight = (lib.mkIf config.light != null) (
         lib.hm.dag.entryAfter [ "writeBoundary" ] ''
           run ${set-cosmic-theme.outPath}/bin/set-cosmic-theme --light \
               ${lib.string.escapeShellArg config.light} ${if config.gtk4 == "dark" then "--gtk4" else ""}
