@@ -18,28 +18,28 @@
     };
   };
   config = let
-    config = config.set-cosmic-theme;
+    cfg = config.set-cosmic-theme;
     set-cosmic-theme = import ./default.nix { pkgs = pkgs; };
   in
-  lib.mkIf (config.dark != null || config.light != null) {
+  lib.mkIf (cfg.dark != null || cfg.light != null) {
     assertions = [
       {
-        assertion = config.gtk4 != null && config.${config.gtk4} == null;
+        assertion = cfg.gtk4 != null && cfg.${cfg.gtk4} == null;
         message = "If the gtk4 option is set, the corresponding mode must not be null";
       }
     ];
 
     home.activation = {
-      setCosmicThemeDark = (lib.mkIf config.dark) != null (
+      setCosmicThemeDark = (lib.mkIf cfg.dark != null) (
         lib.hm.dag.entryAfter [ "writeBoundary" ] ''
           run ${set-cosmic-theme.outPath}/bin/set-cosmic-theme --dark \
-              ${lib.string.escapeShellArg config.dark} ${if config.gtk4 == "dark" then "--gtk4" else ""}
+              ${lib.string.escapeShellArg cfg.dark} ${if cfg.gtk4 == "dark" then "--gtk4" else ""}
         ''
       );
-      setCosmicThemeLight = (lib.mkIf config.light != null) (
+      setCosmicThemeLight = (lib.mkIf cfg.light != null) (
         lib.hm.dag.entryAfter [ "writeBoundary" ] ''
           run ${set-cosmic-theme.outPath}/bin/set-cosmic-theme --light \
-              ${lib.string.escapeShellArg config.light} ${if config.gtk4 == "dark" then "--gtk4" else ""}
+              ${lib.string.escapeShellArg cfg.light} ${if cfg.gtk4 == "dark" then "--gtk4" else ""}
         ''
       );
     };
