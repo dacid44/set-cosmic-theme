@@ -7,7 +7,7 @@ const HELP: &str = "\
 set-cosmic-theme
 
 USAGE:
-  set-cosmic-theme [MODES] THEME
+  set-cosmic-theme [MODES] {THEME | default}
 
 FLAGS:
   -h, --help    Print help information.
@@ -16,19 +16,22 @@ MODES:
   --dark        Set the COSMIC dark theme.
   --light       Set the COSMIC light theme.
                 If neither --dark or --light are specified, which theme to set
-                is determined based on the theme file's palette.
+                is determined based on the theme file's palette, or if setting
+                the default theme, both themes are set.
   --gtk4        Set the GTK4 user CSS based on the theme file.
 
 ARGS:
-  <THEME>           The theme file to set. Should be a RON theme file exported
-                    from cosmic-settings or in the same format.
+  <THEME>       The theme file to set. Should be a RON theme file exported from
+                cosmic-settings or in the same format.
+  default       Set the theme(s) back to the default for the given mode.
+                Incompatible with --gtk4.
 ";
 
 struct Args {
     set_dark: bool,
     set_light: bool,
     set_gtk4: bool,
-    theme_file: PathBuf,
+    theme_file: Option<PathBuf>,
 }
 
 fn parse_args() -> Args {
@@ -61,6 +64,13 @@ fn parse_args() -> Args {
         })
         .is_some();
     let theme_file = match args.as_slice() {
+        [arg] if arg == "default" => {
+            if set_gtk4 {
+                eprintln!("You may not set the default theme when --gtk4 is specified.");
+                std::process::exit(1);
+            }
+            None
+        }
         [path] => {
             let path = PathBuf::from(path);
             if !path.is_file() {
@@ -71,11 +81,11 @@ fn parse_args() -> Args {
                 );
                 std::process::exit(1);
             }
-            path
+            Some(path)
         }
         [] => {
             eprintln!(
-                "You mut provide a path to a theme file. \
+                "You must provide a path to a theme file, or specify 'default'. \
                 Run 'set-cosmic-theme --help' for more information."
             );
             std::process::exit(1);
@@ -97,7 +107,13 @@ fn parse_args() -> Args {
     }
 }
 
-fn set_theme(theme_builder: &ThemeBuilder, dark: bool) -> Result<()> {
+fn set_theme(theme_builder: Option<&ThemeBuilder>, dark: bool) -> Result<()> {
+    let theme_builder = match (theme_builder, dark) {
+        (Some(t), _) => t,
+        (None, true) => &ThemeBuilder::dark(),
+        (None, false) => &ThemeBuilder::light(),
+    };
+
     let builder_config = (if dark {
         ThemeBuilder::dark_config()
     } else {
@@ -129,29 +145,39 @@ fn main() -> Result<()> {
     let mut args = parse_args();
 
     // Read file
-    let theme_str = fs::read_to_string(args.theme_file).context("Failed to read theme file")?;
-    let theme_builder: ThemeBuilder =
-        ron::de::from_str(&theme_str).context("Failed to parse theme file")?;
+    let theme_builder = match args.theme_file {
+        Some(file) => {
+            let theme_str = fs::read_to_string(file).context("Failed to read theme file")?;
+            Some(
+                ron::de::from_str::<ThemeBuilder>(&theme_str)
+                    .context("Failed to parse theme file")?,
+            )
+        }
+        None => None,
+    };
 
     // If theme mode was unspecified, set it based on the given theme file
     if !args.set_dark && !args.set_light {
-        if theme_builder.palette.is_dark() {
-            args.set_dark = true;
-        } else {
-            args.set_light = true;
+        match theme_builder.as_ref().map(|t| t.palette.is_dark()) {
+            Some(true) => args.set_dark = true,
+            Some(false) => args.set_light = true,
+            None => {
+                args.set_dark = true;
+                args.set_light = true;
+            }
         }
     }
 
     // Set Cosmic theme(s)
     if args.set_dark {
-        set_theme(&theme_builder, true).context("Failed to set Cosmic dark theme")?;
+        set_theme(theme_builder.as_ref(), true).context("Failed to set Cosmic dark theme")?;
     }
     if args.set_light {
-        set_theme(&theme_builder, false).context("Failed to set Cosmic light theme")?;
+        set_theme(theme_builder.as_ref(), false).context("Failed to set Cosmic light theme")?;
     }
 
     // Set gtk4 theme
-    if args.set_gtk4 {
+    if let Some(theme_builder) = theme_builder.filter(|_| args.set_gtk4) {
         theme_builder
             .build()
             .write_gtk4()
