@@ -3,12 +3,12 @@
   options.set-cosmic-theme = {
     dark = lib.mkOption {
       description = "Path to dark mode COSMIC theme file, or `\"default\" (set the default dark theme).`";
-      type = lib.types.nullOr lib.types.path;
+      type = lib.types.nullOr (lib.types.either (lib.types.enum [ "default" ]) lib.types.path);
       default = null;
     };
     light = lib.mkOption {
       description = "Path to light mode COSMIC theme file, or `\"default\"` (set the default light theme).";
-      type = lib.types.nullOr lib.types.path;
+      type = lib.types.nullOr (lib.types.either (lib.types.enum [ "default" ]) lib.types.path);
       default = null;
     };
     gtk4 = lib.mkOption {
